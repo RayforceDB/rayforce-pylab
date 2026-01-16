@@ -1,0 +1,140 @@
+# Makefile for building rayforce-py as Pyodide/WASM module
+#
+# This builds _rayforce_c.cpython-312-wasm32-emscripten.so
+# that can be loaded by Pyodide
+
+# ============================================================================
+# Paths (can be overridden via environment variables)
+# ============================================================================
+
+XBUILDENV ?= $(HOME)/.pyodide-xbuildenv/xbuildenv
+PYODIDE_ROOT = $(XBUILDENV)/pyodide-root
+PYTHON_ROOT = $(PYODIDE_ROOT)/cpython/installs/python-3.12.1
+PYTHON_INCLUDE = $(PYTHON_ROOT)/include/python3.12
+
+RAYFORCE_WASM ?= $(HOME)/rayforce-wasm
+RAYFORCE_PY ?= $(HOME)/rayforce-py
+RAYFORCE_CORE ?= $(HOME)/rayforce/core
+# Use the Pyodide-specific library (built with SIDE_MODULE=1)
+RAYFORCE_LIB = $(RAYFORCE_WASM)/build/librayforce-pyodide.a
+
+BUILD_DIR = $(shell pwd)/build
+DIST_DIR = $(shell pwd)/dist
+
+# ============================================================================
+# Toolchain
+# ============================================================================
+
+CC = emcc
+AR = emar
+
+# ============================================================================
+# Flags
+# ============================================================================
+
+# Python/Pyodide specific flags
+# -DPY_CALL_TRAMPOLINE is required for Pyodide module init function calls
+# -sRELOCATABLE for proper function table entries
+PYODIDE_CFLAGS = -fPIC -Wall -std=c17 -O2 \
+	-I$(PYTHON_INCLUDE) \
+	-I$(RAYFORCE_CORE) \
+	-DSYS_MALLOC \
+	-D__EMSCRIPTEN__ \
+	-DPY_CALL_TRAMPOLINE \
+	-sRELOCATABLE \
+	-Wno-macro-redefined \
+	-Wno-implicit-function-declaration
+
+# Pyodide shared library flags
+# SIDE_MODULE=2 for dynamic linking without main module requirement
+# ALLOW_TABLE_GROWTH for dynamic function table expansion
+PYODIDE_LDFLAGS = \
+	-s SIDE_MODULE=2 \
+	-s WASM_BIGINT=1 \
+	-s ALLOW_TABLE_GROWTH=1 \
+	-s EXPORTED_FUNCTIONS="['_PyInit__rayforce_c']" \
+	-L$(RAYFORCE_WASM)/build -lrayforce-pyodide
+
+# ============================================================================
+# Sources
+# ============================================================================
+
+CAPI_DIR = $(RAYFORCE_PY)/rayforce/capi
+
+CAPI_SRCS = \
+	$(CAPI_DIR)/rayforce_c.c \
+	$(CAPI_DIR)/raypy_init_from_py.c \
+	$(CAPI_DIR)/raypy_init_from_buffer.c \
+	$(CAPI_DIR)/raypy_read_from_rf.c \
+	$(CAPI_DIR)/raypy_queries.c \
+	$(CAPI_DIR)/raypy_io.c \
+	$(CAPI_DIR)/raypy_binary.c \
+	$(CAPI_DIR)/raypy_eval.c \
+	$(CAPI_DIR)/raypy_iter.c \
+	$(CAPI_DIR)/raypy_serde.c
+
+# Exclude dynlib (dynamic library loading doesn't work in WASM)
+# $(CAPI_DIR)/raypy_dynlib.c
+
+# Local stubs for excluded functionality
+STUBS_SRCS = $(shell pwd)/wasm_stubs.c
+
+CAPI_OBJS = $(patsubst $(CAPI_DIR)/%.c,$(BUILD_DIR)/%.o,$(CAPI_SRCS))
+STUBS_OBJS = $(BUILD_DIR)/wasm_stubs.o
+
+# Output file
+TARGET = _rayforce_c.cpython-312-wasm32-emscripten.so
+
+# ============================================================================
+# Targets
+# ============================================================================
+
+.PHONY: all clean check dirs
+
+all: check dirs $(DIST_DIR)/$(TARGET)
+	@echo "✅ Build complete: $(DIST_DIR)/$(TARGET)"
+
+check:
+	@test -f $(PYTHON_INCLUDE)/Python.h || (echo "❌ Python.h not found. Run: make setup-xbuildenv" && exit 1)
+	@test -f $(RAYFORCE_LIB) || (echo "❌ librayforce-pyodide.a not found. Build with: cd ~/rayforce-wasm && make pyodide" && exit 1)
+	@which emcc > /dev/null || (echo "❌ emcc not found" && exit 1)
+
+dirs:
+	@mkdir -p $(BUILD_DIR) $(DIST_DIR)
+
+# Compile C API sources
+$(BUILD_DIR)/%.o: $(CAPI_DIR)/%.c
+	$(CC) -include $(shell pwd)/pyodide_compat.h -include $(RAYFORCE_CORE)/def.h -c $< $(PYODIDE_CFLAGS) -o $@
+
+# Compile local stubs
+$(BUILD_DIR)/wasm_stubs.o: wasm_stubs.c
+	$(CC) -c $< $(PYODIDE_CFLAGS) -o $@
+
+# Link into shared library
+$(DIST_DIR)/$(TARGET): $(CAPI_OBJS) $(STUBS_OBJS)
+	$(CC) -shared -o $@ $(CAPI_OBJS) $(STUBS_OBJS) $(PYODIDE_LDFLAGS)
+
+clean:
+	rm -rf $(BUILD_DIR) $(DIST_DIR)
+
+# ============================================================================
+# Setup helpers
+# ============================================================================
+
+setup-xbuildenv:
+	@echo "Downloading Pyodide xbuildenv..."
+	@curl -sL https://github.com/pyodide/pyodide/releases/download/0.26.4/xbuildenv-0.26.4.tar.bz2 -o /tmp/xbuildenv.tar.bz2
+	@mkdir -p $(HOME)/.pyodide-xbuildenv
+	@tar -xjf /tmp/xbuildenv.tar.bz2 -C $(HOME)/.pyodide-xbuildenv
+	@echo "✅ xbuildenv installed to $(XBUILDENV)"
+
+# ============================================================================
+# Info
+# ============================================================================
+
+info:
+	@echo "PYTHON_INCLUDE: $(PYTHON_INCLUDE)"
+	@echo "RAYFORCE_CORE:  $(RAYFORCE_CORE)"
+	@echo "RAYFORCE_LIB:   $(RAYFORCE_LIB)"
+	@echo "CAPI_SRCS:      $(CAPI_SRCS)"
+	@echo "TARGET:         $(TARGET)"

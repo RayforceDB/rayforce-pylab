@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rayforce PyLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <style>
+    :root {
+      --navy-900: #0a0e17;
+      --navy-800: #111827;
+      --navy-700: #1B365D;
+      --navy-600: #1e3a5f;
+      --gold-500: #E9A320;
+      --gold-400: #e9a033;
+      --gold-300: #f0b85a;
+      --white: #ffffff;
+      --gray-100: #f8f9fa;
+      --gray-200: #e5e7eb;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --red-500: #ef4444;
+      --green-500: #10b981;
+      --blue-500: #3b82f6;
+      --header-height: 60px;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--navy-900);
+      color: var(--white);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image:
+        linear-gradient(rgba(233, 163, 32, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(233, 163, 32, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(ellipse at 50% 0%, rgba(233, 163, 32, 0.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      height: var(--header-height);
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(233, 163, 32, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg {
+      width: 100%; height: 100%;
+    }
+    .logo-text { font-size: 20px; font-weight: 700; }
+    .logo-text span { color: var(--gold-500); }
+
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-400); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-500); }
+    .status.ready .status-dot { background: var(--green-500); }
+    .status.loading .status-dot { background: var(--gold-500); animation: pulse 1.5s ease-in-out infinite; }
+    .status.error .status-dot { background: var(--red-500); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .social-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .social-link {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      color: var(--gray-400); text-decoration: none;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    .social-link:hover {
+      color: var(--gold-500);
+      background: rgba(233, 163, 32, 0.1);
+    }
+    .social-link svg { width: 20px; height: 20px; }
+    .social-link.rayforce-link svg { width: 24px; height: 24px; }
+
+    .version-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--gray-500);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Notebook container */
+    .notebook {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      padding-bottom: 100px;
+    }
+
+    .notebook-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* Cell styles */
+    .cell {
+      background: rgba(17, 24, 39, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cell:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .cell.focused {
+      border-color: rgba(233, 163, 32, 0.4);
+      box-shadow: 0 0 0 1px rgba(233, 163, 32, 0.2);
+    }
+
+    .cell.running {
+      border-color: rgba(233, 163, 32, 0.6);
+    }
+
+    .cell.executed {
+      border-left: 3px solid var(--green-500);
+    }
+
+    .cell.executed.has-error {
+      border-left: 3px solid var(--red-500);
+    }
+
+    .cell-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .cell-number {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--gray-500);
+      min-width: 40px;
+    }
+
+    .cell-number.executed {
+      color: var(--gold-500);
+    }
+
+    .cell-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    .cell-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: var(--gray-500);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cell-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--white);
+    }
+
+    .cell-btn.run-btn:hover {
+      background: rgba(233, 163, 32, 0.2);
+      color: var(--gold-500);
+    }
+
+    .cell-btn.delete-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--red-500);
+    }
+
+    .cell-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .cell-btn.running {
+      color: var(--gold-500);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .cell-editor {
+      min-height: 60px;
+    }
+
+    .cell-output {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0, 0, 0, 0.15);
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: none;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .cell-output.visible {
+      display: block;
+    }
+
+    .cell-output.error {
+      color: var(--red-500);
+    }
+
+    .cell-output.success {
+      color: var(--gray-200);
+    }
+
+    /* Add cell button */
+    .add-cell-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px;
+      border: 2px dashed rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--gray-500);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .add-cell-btn:hover {
+      border-color: rgba(233, 163, 32, 0.4);
+      background: rgba(233, 163, 32, 0.05);
+      color: var(--gold-500);
+    }
+
+    .add-cell-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--navy-900);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    .loading-overlay.hidden { opacity: 0; visibility: hidden; }
+
+    .loading-logo {
+      width: 80px; height: 80px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px;
+      animation: float 2s ease-in-out infinite;
+    }
+    .loading-logo svg {
+      width: 100%; height: 100%;
+    }
+
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+    .loading-text { font-size: 14px; color: var(--gray-400); margin-top: 8px; }
+
+    .loading-progress {
+      width: 200px; height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px; overflow: hidden; margin-top: 16px;
+    }
+
+    .loading-progress-bar {
+      height: 100%; background: var(--gold-500);
+      width: 0%; transition: width 0.3s ease;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+    /* Keyboard hints */
+    .keyboard-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 16px;
+      padding: 10px 20px;
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--gray-400);
+      z-index: 50;
+    }
+
+    .keyboard-hint kbd {
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 0 16px; }
+      .github-link span { display: none; }
+      .notebook { padding: 16px; }
+      .keyboard-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-logo">
+      <svg viewBox="0 0 220 205" fill="none">
+        <path d="M167 0c61 8 78 116-14 126l64 75h-53L70 90l89 0c29 0 28-52 0-52L20 37-12 0h179z" fill="#E9A320"/>
+      </svg>
+    </div>
+    <div class="loading-text" id="loadingText">Initializing...</div>
+    <div class="loading-progress">
+      <div class="loading-progress-bar" id="loadingProgress"></div>
+    </div>
+  </div>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="800 1100 1395 1535" fill="none">
+          <defs>
+            <linearGradient id="pyBlue" gradientUnits="userSpaceOnUse" gradientTransform="matrix(3.92,0,0,3.86,704.6,1789.6)" x1="26.6" y1="20.6" x2="135.7" y2="114.4">
+              <stop offset="0" stop-color="#5a9fd4"/><stop offset="1" stop-color="#306998"/>
+            </linearGradient>
+            <linearGradient id="pyYellow" gradientUnits="userSpaceOnUse" gradientTransform="matrix(3.92,0,0,3.86,704.6,1789.6)" x1="151" y1="192.4" x2="112" y2="137.3">
+              <stop offset="0" stop-color="#ffd43b"/><stop offset="1" stop-color="#ffe873"/>
+            </linearGradient>
+          </defs>
+          <path d="m 2100,1127.6 -380,275 c 118.4,0 184.4,59.8 220,135 z" fill="#e9a033"/>
+          <path d="m 1680,1485.1 c 140,0 243.6,112.7 243.6,252.7 0,140 -103.6,237.3 -243.6,237.3 l 245,275 h -205 l -337,-410 h 297 c 65,0 99.5,-44.9 99.5,-104.9 0,-60 -34.5,-105.1 -99.5,-105.1 l -470,0 -120,-145 z" fill="#fff"/>
+          <path d="m 2004,1511.1 c 7.3,4.1 14.6,8.1 21.8,12.2 19.3,10.8 39,37.2 39.2,59.2 v 560 c 0.2,22.1 -14.5,49.7 -33.6,60.8 -163.8,95.2 -327.6,190.4 -491.4,285.7 -19.1,11.1 -50.2,11.4 -69.5,0.6 -90,-50.4 -180,-100.7 -270,-151.1 -35.7,28.9 -71.5,57.8 -107.2,86.6 l 343.2,192.2 c 43.3,24.3 96.5,23.8 139.4,-1.1 l 549.3,-319.4 c 42.9,-25 70.2,-70 69.8,-119.2 v -630 c -0.4,-49.2 -33.6,-95 -76.9,-119.2 l -67.1,-37.6 c -15.7,40.1 -31.3,80.2 -47,120.3 z" fill="#fff"/>
+          <path d="M 1825.5,1264.5 1563.6,1117.9 c -21.3,-11.9 -45.4,-18.1 -69.8,-17.9 -24.5,0.2 -48.5,6.8 -69.5,19 l -549.3,319.4 c -42.9,25 -75.3,70 -74.9,119.2 v 630 c 0.4,49.2 38.7,95 82.1,119.2 l 80.5,45.1 c 25.1,-34.8 50.2,-69.7 75.3,-104.5 -21.2,-11.9 -42.3,-23.7 -63.5,-35.6 -19.3,-10.8 -39.2,-37.2 -39.3,-59.2 v -560 c -0.2,-22.1 14.7,-49.7 33.8,-60.8 163.8,-95.2 327.6,-190.4 491.4,-285.7 9.5,-5.5 22.1,-8.4 34.7,-8.5 12.6,-0.1 25.2,2.5 34.8,7.9 60.5,33.9 121,67.8 181.6,101.6 38.1,-27.6 76.2,-55.1 114.3,-82.7 z" fill="#fff"/>
+          <path d="m 1192,1869.2 c -32,0.1 -62.5,2.8 -89.3,7.4 -79.1,13.6 -93.5,42.2 -93.5,94.8 v 69.5 h 186.9 v 23.2 h -186.9 -70.1 c -54.3,0 -101.9,31.9 -116.8,92.5 -17.2,69.5 -17.9,112.8 0,185.3 13.3,54 45,92.5 99.3,92.5 h 64.3 v -83.3 c 0,-60.2 53.4,-113.3 116.8,-113.3 h 186.7 c 52,0 93.5,-41.7 93.5,-92.7 v -173.7 c 0,-49.4 -42.7,-86.5 -93.5,-94.8 -32.1,-5.2 -65.4,-7.6 -97.4,-7.4 z m -101.1,55.9 c 19.3,0 35.1,15.6 35.1,34.9 0,19.2 -15.8,34.6 -35.1,34.6 -19.4,0 -35.1,-15.5 -35.1,-34.6 0,-19.2 15.7,-34.9 35.1,-34.9 z" fill="url(#pyBlue)"/>
+          <path d="m 1406.1,2064.1 v 81 c 0,62.8 -54.6,115.6 -116.8,115.6 h -186.7 c -51.1,0 -93.5,42.7 -93.5,92.7 v 173.7 c 0,49.4 44,78.5 93.5,92.7 59.2,17 115.9,20 186.7,0 47.1,-13.3 93.5,-40 93.5,-92.7 v -69.5 h -186.7 v -23.2 h 186.7 93.5 c 54.3,0 74.6,-37 93.5,-92.5 19.5,-57.1 18.7,-112.1 0,-185.3 -13.4,-52.8 -39.1,-92.5 -93.5,-92.5 z m -105,439.8 c 19.4,0 35.1,15.5 35.1,34.6 0,19.2 -15.7,34.9 -35.1,34.9 -19.3,0 -35.1,-15.6 -35.1,-34.9 0,-19.2 15.8,-34.6 35.1,-34.6 z" fill="url(#pyYellow)"/>
+        </svg>
+      </div>
+      <div class="logo-text">Rayforce <span>PyLab</span></div>
+    </div>
+    <div class="header-right">
+      <span id="versionBadge" class="version-badge" style="display: none;">v0.0.0</span>
+      <div id="status" class="status loading">
+        <div class="status-dot"></div>
+        <span id="statusText">Loading...</span>
+      </div>
+      <div class="social-links">
+        <!-- Rayforce Core -->
+        <a href="https://rayforcedb.com" class="social-link rayforce-link" target="_blank" title="RayforceDB">
+          <svg viewBox="0 0 220 205" fill="currentColor">
+            <path d="M167 0c61 8 78 116-14 126l64 75h-53L70 90l89 0c29 0 28-52 0-52L20 37-12 0h179z"/>
+          </svg>
+        </a>
+        <!-- rayforce-py Docs -->
+        <a href="https://rayforcedb.github.io/rayforce-py/" class="social-link" target="_blank" title="Documentation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </a>
+        <!-- PyPI -->
+        <a href="https://pypi.org/project/rayforce/" class="social-link" target="_blank" title="PyPI">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.042 0L5.61 3.182v6.345l-2.827 1.46v6.454L9.255 21l6.473-3.182v-3.272l2.787-1.42V6.672L12.042 0zm-.01 2.81l4.153 2.14-4.132 2.132-4.194-2.17 4.173-2.103zm-4.63 3.263l4.163 2.153v4.553l-4.162-2.132V6.073zm8.797 0v4.573l-4.175 2.133V8.247l4.175-2.173zM6.063 11.09l4.152 2.127-4.12 2.1-4.163-2.15 4.131-2.078zm4.63 3.273l4.152 2.127v4.548l-4.152-2.107V14.364zm4.588-1.133l4.142 2.126v4.548l-4.142-2.107v-4.567z"/>
+          </svg>
+        </a>
+        <!-- GitHub -->
+        <a href="https://github.com/RayforceDB/rayforce-py" class="social-link" target="_blank" title="GitHub">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="notebook" id="notebook">
+    <div class="notebook-inner" id="notebookInner">
+      <!-- Cells will be added here -->
+    </div>
+  </div>
+
+  <div class="keyboard-hint">
+    <span><kbd>Shift</kbd> + <kbd>Enter</kbd> Run cell & advance</span>
+    <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> Run cell</span>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+  <script type="module">
+    const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+    const WHEEL_URL = new URL('./dist/rayforce-0.1.0-cp312-cp312-emscripten_3_1_58_wasm32.whl', window.location.href).href;
+
+    let pyodide = null;
+    let monaco = null;
+    let cells = [];
+    let focusedCellId = null;
+    let executionCount = 0;
+
+    const statusEl = document.getElementById('status');
+    const statusText = document.getElementById('statusText');
+    const notebookInner = document.getElementById('notebookInner');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingTextEl = document.getElementById('loadingText');
+    const loadingProgress = document.getElementById('loadingProgress');
+    const versionBadge = document.getElementById('versionBadge');
+
+    function setStatus(text, type = 'loading') {
+      statusText.textContent = text;
+      statusEl.className = `status ${type}`;
+    }
+
+    function setLoading(text, progress) {
+      loadingTextEl.textContent = text;
+      loadingProgress.style.width = `${progress}%`;
+    }
+
+    // Cell management
+    function generateId() {
+      return 'cell-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function createCell(code = '', insertAfter = null) {
+      const id = generateId();
+      const cellEl = document.createElement('div');
+      cellEl.className = 'cell';
+      cellEl.id = id;
+      cellEl.innerHTML = `
+        <div class="cell-header">
+          <span class="cell-number">[ ]</span>
+          <div class="cell-actions">
+            <button class="cell-btn run-btn" title="Run cell (Shift+Enter)">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
+            </button>
+            <button class="cell-btn delete-btn" title="Delete cell">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="cell-editor" id="${id}-editor"></div>
+        <div class="cell-output" id="${id}-output"></div>
+      `;
+
+      // Insert at correct position
+      if (insertAfter) {
+        const afterEl = document.getElementById(insertAfter);
+        afterEl.parentNode.insertBefore(cellEl, afterEl.nextSibling);
+      } else {
+        // Insert before add button if it exists, or at end
+        const addBtn = notebookInner.querySelector('.add-cell-btn');
+        if (addBtn) {
+          notebookInner.insertBefore(cellEl, addBtn);
+        } else {
+          notebookInner.appendChild(cellEl);
+        }
+      }
+
+      // Create Monaco editor for this cell
+      const editorContainer = document.getElementById(`${id}-editor`);
+      const editor = monaco.editor.create(editorContainer, {
+        value: code,
+        language: 'python',
+        theme: 'rayforce-dark',
+        fontSize: 14,
+        fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
+        lineNumbers: 'on',
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        tabSize: 4,
+        insertSpaces: true,
+        renderLineHighlight: 'none',
+        cursorBlinking: 'smooth',
+        scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+        overviewRulerLanes: 0,
+        hideCursorInOverviewRuler: true,
+        overviewRulerBorder: false,
+        lineDecorationsWidth: 16,
+        lineNumbersMinChars: 3,
+        folding: false,
+        glyphMargin: false,
+        wordWrap: 'on',
+        padding: { top: 12, bottom: 12 },
+      });
+
+      // Auto-resize editor based on content
+      const updateEditorHeight = () => {
+        const lineCount = editor.getModel().getLineCount();
+        const lineHeight = 20;
+        const minHeight = 60;
+        const maxHeight = 500;
+        const height = Math.min(maxHeight, Math.max(minHeight, lineCount * lineHeight + 24));
+        editorContainer.style.height = `${height}px`;
+        editor.layout();
+      };
+
+      editor.onDidChangeModelContent(updateEditorHeight);
+      updateEditorHeight();
+
+      // Focus handling
+      editor.onDidFocusEditorWidget(() => {
+        setFocusedCell(id);
+      });
+
+      // Keyboard shortcuts
+      editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => {
+        runCell(id, true);
+      });
+
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+        runCell(id, false);
+      });
+
+      // Store cell data
+      const cell = { id, editor, executed: false, executionNumber: null };
+      cells.push(cell);
+
+      // Event listeners
+      cellEl.querySelector('.run-btn').addEventListener('click', () => runCell(id, false));
+      cellEl.querySelector('.delete-btn').addEventListener('click', () => deleteCell(id));
+
+      // Focus the new cell
+      setTimeout(() => {
+        editor.focus();
+        setFocusedCell(id);
+      }, 50);
+
+      return cell;
+    }
+
+    function setFocusedCell(id) {
+      // Remove focus from all cells
+      cells.forEach(cell => {
+        document.getElementById(cell.id)?.classList.remove('focused');
+      });
+
+      // Add focus to current cell
+      focusedCellId = id;
+      document.getElementById(id)?.classList.add('focused');
+    }
+
+    function deleteCell(id) {
+      if (cells.length <= 1) return; // Keep at least one cell
+
+      const index = cells.findIndex(c => c.id === id);
+      if (index === -1) return;
+
+      const cell = cells[index];
+      cell.editor.dispose();
+      document.getElementById(id).remove();
+      cells.splice(index, 1);
+
+      // Focus adjacent cell
+      if (cells.length > 0) {
+        const newIndex = Math.min(index, cells.length - 1);
+        cells[newIndex].editor.focus();
+      }
+    }
+
+    async function runCell(id, advanceToNext = false) {
+      const cell = cells.find(c => c.id === id);
+      if (!cell || !pyodide) return;
+
+      const cellEl = document.getElementById(id);
+      const runBtn = cellEl.querySelector('.run-btn');
+      const outputEl = document.getElementById(`${id}-output`);
+      const numberEl = cellEl.querySelector('.cell-number');
+
+      // Set running state
+      cellEl.classList.remove('executed', 'has-error');
+      cellEl.classList.add('running');
+      runBtn.classList.add('running');
+      runBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="20" stroke-dashoffset="10"/></svg>';
+
+      const code = cell.editor.getValue();
+      outputEl.className = 'cell-output';
+      outputEl.textContent = '';
+
+      try {
+        // Execute code with automatic last expression display (like Jupyter)
+        const result = await pyodide.runPythonAsync(`
+import sys
+import ast
+from io import StringIO
+
+_code = ${JSON.stringify(code)}
+_stdout_capture = StringIO()
+sys.stdout = _stdout_capture
+_last_expr_result = None
+
+try:
+    # Parse the code to check if last statement is an expression
+    _tree = ast.parse(_code)
+    _has_last_expr = False
+
+    if _tree.body and isinstance(_tree.body[-1], ast.Expr):
+        _has_last_expr = True
+        # Execute all but last statement
+        if len(_tree.body) > 1:
+            _exec_code = ast.Module(body=_tree.body[:-1], type_ignores=[])
+            exec(compile(_exec_code, '<cell>', 'exec'))
+        # Evaluate last expression
+        _last_expr = _tree.body[-1].value
+        _last_expr_result = eval(compile(ast.Expression(body=_last_expr), '<cell>', 'eval'))
+    else:
+        # No trailing expression, execute all
+        exec(compile(_tree, '<cell>', 'exec'))
+except SyntaxError:
+    # If parsing fails, just execute normally
+    exec(_code)
+
+_stdout_output = _stdout_capture.getvalue()
+sys.stdout = sys.__stdout__
+
+# Format output
+_final_output = _stdout_output
+if _last_expr_result is not None:
+    _repr = repr(_last_expr_result)
+    if _final_output:
+        _final_output = _final_output.rstrip() + '\\n' + _repr
+    else:
+        _final_output = _repr
+
+_final_output
+`);
+
+        if (result && result.trim()) {
+          outputEl.textContent = result;
+          outputEl.classList.add('visible', 'success');
+        } else {
+          outputEl.classList.remove('visible');
+        }
+
+        // Update execution number and visual state
+        executionCount++;
+        cell.executionNumber = executionCount;
+        cell.executed = true;
+        numberEl.textContent = `[${executionCount}]`;
+        numberEl.classList.add('executed');
+        cellEl.classList.add('executed');
+
+      } catch (error) {
+        outputEl.textContent = error.message;
+        outputEl.classList.add('visible', 'error');
+        cellEl.classList.add('executed', 'has-error');
+
+        // Still update execution number on error
+        executionCount++;
+        cell.executionNumber = executionCount;
+        numberEl.textContent = `[${executionCount}]`;
+        numberEl.classList.add('executed');
+      }
+
+      // Reset running state
+      cellEl.classList.remove('running');
+      runBtn.classList.remove('running');
+      runBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>';
+
+      // Advance to next cell or create new one
+      if (advanceToNext) {
+        const index = cells.findIndex(c => c.id === id);
+        if (index === cells.length - 1) {
+          // Create new cell
+          createCell('', id);
+        } else {
+          // Focus next cell
+          cells[index + 1].editor.focus();
+        }
+      }
+    }
+
+    function createAddCellButton() {
+      const btn = document.createElement('button');
+      btn.className = 'add-cell-btn';
+      btn.innerHTML = `
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2z"/></svg>
+        Add Cell
+      `;
+      btn.addEventListener('click', () => {
+        const lastCell = cells[cells.length - 1];
+        createCell('', lastCell?.id);
+      });
+      notebookInner.appendChild(btn);
+    }
+
+    function initMonaco() {
+      return new Promise((resolve) => {
+        require.config({
+          paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }
+        });
+
+        require(['vs/editor/editor.main'], function(m) {
+          monaco = window.monaco;
+
+          monaco.editor.defineTheme('rayforce-dark', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+              { token: 'comment', foreground: '6b7280', fontStyle: 'italic' },
+              { token: 'keyword', foreground: 'E9A320' },
+              { token: 'string', foreground: '10b981' },
+              { token: 'number', foreground: '3b82f6' },
+              { token: 'type', foreground: 'f0b85a' },
+            ],
+            colors: {
+              'editor.background': '#0d1117',
+              'editor.foreground': '#e5e7eb',
+              'editorLineNumber.foreground': '#4b5563',
+              'editorLineNumber.activeForeground': '#9ca3af',
+              'editor.selectionBackground': '#E9A32033',
+              'editor.lineHighlightBackground': '#ffffff00',
+              'editorCursor.foreground': '#E9A320',
+            }
+          });
+
+          resolve();
+        });
+      });
+    }
+
+    async function initPyodide() {
+      setLoading('Loading Python runtime...', 30);
+
+      const script = document.createElement('script');
+      script.src = PYODIDE_URL;
+      document.head.appendChild(script);
+
+      await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+      });
+
+      pyodide = await loadPyodide();
+    }
+
+    async function installRayforce() {
+      setLoading('Installing rayforce...', 50);
+
+      await pyodide.loadPackage('micropip');
+      const micropip = pyodide.pyimport('micropip');
+      await micropip.install(WHEEL_URL);
+
+      setLoading('Initializing...', 90);
+
+      const version = await pyodide.runPythonAsync(`
+import rayforce
+rayforce.version
+`);
+
+      // Display version badge
+      versionBadge.textContent = `v${version}`;
+      versionBadge.style.display = 'inline-block';
+    }
+
+    async function init() {
+      try {
+        setLoading('Loading editor...', 10);
+        await initMonaco();
+
+        await initPyodide();
+        await installRayforce();
+
+        setLoading('Ready!', 100);
+
+        // Create initial cells
+        createAddCellButton();
+
+        createCell(`# import rayforce to get started
+# from rayforce import eval_str, Vector, I64, F64, Symbol, Table, Dict
+`);
+
+        setTimeout(() => {
+          loadingOverlay.classList.add('hidden');
+          setStatus('Ready', 'ready');
+          cells[0].editor.focus();
+        }, 300);
+
+      } catch (error) {
+        setStatus('Error: ' + error.message, 'error');
+        loadingTextEl.textContent = 'Failed to load: ' + error.message;
+        console.error(error);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout rayforce-pylab
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '3.1.58'
+
+      - name: Clone rayforce (latest master)
+        run: |
+          git clone --depth 1 https://github.com/RayforceDB/rayforce.git ~/rayforce
+          echo "Rayforce commit: $(git -C ~/rayforce rev-parse HEAD)"
+
+      - name: Clone rayforce-py (latest master)
+        run: |
+          git clone --depth 1 https://github.com/RayforceDB/rayforce-py.git ~/rayforce-py
+          echo "rayforce-py commit: $(git -C ~/rayforce-py rev-parse HEAD)"
+
+      - name: Setup Pyodide xbuildenv
+        run: |
+          curl -sL https://github.com/pyodide/pyodide/releases/download/0.26.4/xbuildenv-0.26.4.tar.bz2 -o /tmp/xbuildenv.tar.bz2
+          mkdir -p ~/.pyodide-xbuildenv
+          tar -xjf /tmp/xbuildenv.tar.bz2 -C ~/.pyodide-xbuildenv
+          echo "Pyodide xbuildenv installed"
+
+      - name: Build librayforce-pyodide.a (WASM with RELOCATABLE)
+        run: |
+          mkdir -p ~/rayforce-wasm/build/pyodide-obj
+          cd ~/rayforce-wasm
+
+          CORE_DIR=~/rayforce/core
+          OBJ_DIR=~/rayforce-wasm/build/pyodide-obj
+
+          # Compile each .c file with RELOCATABLE flag for Pyodide compatibility
+          for src in $CORE_DIR/*.c; do
+            name=$(basename $src .c)
+            # Skip platform-specific files
+            if [[ "$name" == "main" || "$name" == "epoll" || "$name" == "iocp" || "$name" == "kqueue" || "$name" == "wasm" ]]; then
+              continue
+            fi
+            echo "Compiling $name.c"
+            emcc -include $CORE_DIR/def.h -c $src \
+              -fPIC -Wall -std=c17 -O2 \
+              -DSYS_MALLOC \
+              -sRELOCATABLE \
+              -o $OBJ_DIR/$name.o
+          done
+
+          # Create static library
+          emar rc ~/rayforce-wasm/build/librayforce-pyodide.a $OBJ_DIR/*.o
+          echo "librayforce-pyodide.a created: $(ls -lh ~/rayforce-wasm/build/librayforce-pyodide.a)"
+
+      - name: Build rayforce-py wheel for Pyodide
+        env:
+          HOME: /home/runner
+        run: |
+          # Build using Makefile.pyodide
+          make -f Makefile.pyodide RAYFORCE_WASM=~/rayforce-wasm RAYFORCE_PY=~/rayforce-py RAYFORCE_CORE=~/rayforce/core
+
+          echo "Build artifacts:"
+          ls -lh dist/
+
+      - name: Create wheel package
+        run: |
+          # Copy Python source files from rayforce-py
+          mkdir -p wheel_build/rayforce
+          cp -r ~/rayforce-py/rayforce/*.py wheel_build/rayforce/
+          cp -r ~/rayforce-py/rayforce/types wheel_build/rayforce/
+          cp -r ~/rayforce-py/rayforce/utils wheel_build/rayforce/
+          cp ~/rayforce-py/rayforce/_rayforce_c.pyi wheel_build/rayforce/ 2>/dev/null || true
+
+          # Use Pyodide-compatible __init__.py (handles emscripten platform)
+          cp rayforce_init_pyodide.py wheel_build/rayforce/__init__.py
+
+          # Copy compiled .so
+          cp dist/_rayforce_c.cpython-312-wasm32-emscripten.so wheel_build/rayforce/
+
+          # Create dist-info
+          mkdir -p wheel_build/rayforce-0.1.0.dist-info
+          cat > wheel_build/rayforce-0.1.0.dist-info/WHEEL << 'EOF'
+          Wheel-Version: 1.0
+          Generator: rayforce-pylab
+          Root-Is-Purelib: false
+          Tag: cp312-cp312-emscripten_3_1_58_wasm32
+          EOF
+
+          cat > wheel_build/rayforce-0.1.0.dist-info/METADATA << 'EOF'
+          Metadata-Version: 2.1
+          Name: rayforce
+          Version: 0.1.0
+          EOF
+
+          # Generate RECORD
+          cd wheel_build
+          python3 << 'PYTHON'
+          import hashlib, base64, os
+          def get_record_entry(filepath, basedir):
+              relpath = os.path.relpath(filepath, basedir)
+              with open(filepath, 'rb') as f: data = f.read()
+              sha256 = hashlib.sha256(data).digest()
+              b64hash = base64.urlsafe_b64encode(sha256).rstrip(b'=').decode('ascii')
+              return f'{relpath},sha256={b64hash},{len(data)}'
+          entries = []
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if d != '__pycache__']
+              for f in files:
+                  if f == 'RECORD': continue
+                  entries.append(get_record_entry(os.path.join(root, f), '.'))
+          entries.append('rayforce-0.1.0.dist-info/RECORD,,')
+          with open('rayforce-0.1.0.dist-info/RECORD', 'w') as f:
+              f.write('\n'.join(sorted(entries)))
+          PYTHON
+          cd ..
+
+          # Create wheel
+          cd wheel_build
+          zip -rq ../dist/rayforce-0.1.0-cp312-cp312-emscripten_3_1_58_wasm32.whl rayforce rayforce-0.1.0.dist-info -x "*.pyc" -x "*__pycache__*"
+          cd ..
+
+          echo "Wheel created:"
+          ls -lh dist/*.whl
+
+      - name: Prepare deployment
+        run: |
+          mkdir -p _site/dist
+
+          # Copy main files
+          cp index.html _site/
+          cp CNAME _site/
+          cp favicon.svg _site/
+          cp dist/*.whl _site/dist/
+
+          # Add build info
+          cat > _site/build-info.txt << EOF
+          Built: $(date -u)
+          rayforce: $(git -C ~/rayforce rev-parse HEAD)
+          rayforce-py: $(git -C ~/rayforce-py rev-parse HEAD)
+          rayforce-pylab: $(git rev-parse HEAD)
+          EOF
+
+          echo "Deployment contents:"
+          ls -la _site/
+          ls -la _site/dist/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

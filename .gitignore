@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+*.o
+*.so
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Local development
+.claude/
+wheel_build/
+pyodide_build_test/
+dist/
