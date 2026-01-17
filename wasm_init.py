@@ -8,7 +8,7 @@ from rayforce.ffi import FFI
 
 FFI.init_runtime()
 
-version = "0.5.2"
+version = "0.5.4"
 
 # WASM/Pyodide: The shared library is loaded automatically by Pyodide
 # when the wheel is installed, so we don't need ctypes.CDLL here

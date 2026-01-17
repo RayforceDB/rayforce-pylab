@@ -128,19 +128,240 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    /* Notebook container */
-    .notebook {
+    /* Main content area with notebook and docs */
+    .main-content {
       position: relative;
       z-index: 1;
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    /* Notebook container */
+    .notebook {
       flex: 1;
       overflow-y: auto;
       padding: 24px;
       padding-bottom: 100px;
+      transition: margin-right 0.3s ease;
     }
 
     .notebook-inner {
       max-width: 1000px;
       margin: 0 auto;
+    }
+
+    /* Docs panel */
+    .docs-panel {
+      position: fixed;
+      right: 0;
+      top: var(--header-height);
+      bottom: 0;
+      width: 480px;
+      background: var(--navy-800);
+      border-left: 1px solid rgba(233, 163, 32, 0.15);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 80;
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .docs-panel.open {
+      transform: translateX(0);
+    }
+
+    .docs-panel.resizing {
+      transition: none;
+    }
+
+    /* Resize handle - inside the panel on the left edge */
+    .docs-resize-handle {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 12px;
+      cursor: col-resize;
+      z-index: 100;
+      background: linear-gradient(to right, rgba(233, 163, 32, 0.15), transparent);
+    }
+
+    .docs-resize-handle:hover,
+    .docs-resize-handle.active {
+      background: linear-gradient(to right, rgba(233, 163, 32, 0.5), transparent);
+    }
+
+    .docs-resize-handle::before {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 60px;
+      background: var(--gold-500);
+      border-radius: 2px;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+
+    .docs-resize-handle:hover::before,
+    .docs-resize-handle.active::before {
+      opacity: 1;
+    }
+
+    .docs-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+    }
+
+    .docs-panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-200);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .docs-panel-title svg {
+      width: 16px;
+      height: 16px;
+      color: var(--gold-500);
+    }
+
+    .docs-panel-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red-500);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+    }
+
+    .docs-panel-close:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #f87171;
+    }
+
+    .docs-panel-close svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .docs-iframe-container {
+      flex: 1;
+      min-height: 0;
+      background: #fff;
+      isolation: isolate;
+    }
+
+    .docs-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* Disable iframe pointer events during resize */
+    .docs-panel.resizing .docs-iframe {
+      pointer-events: none !important;
+    }
+
+    /* Floating docs toggle button */
+    .docs-toggle {
+      position: fixed;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 80px;
+      border: none;
+      background: var(--navy-700);
+      color: var(--gold-500);
+      border-radius: 12px 0 0 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: -2px 0 12px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(233, 163, 32, 0.3);
+      border-right: none;
+    }
+
+    .docs-toggle:hover {
+      width: 56px;
+      background: var(--navy-600);
+      color: var(--gold-400);
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .docs-toggle.active {
+      display: none;
+    }
+
+    .docs-toggle svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .docs-toggle-label {
+      position: absolute;
+      right: 100%;
+      background: var(--navy-700);
+      color: var(--gold-500);
+      padding: 8px 12px;
+      border-radius: 8px 0 0 8px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateX(10px);
+      transition: all 0.2s ease;
+      pointer-events: none;
+      box-shadow: -2px 0 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .docs-toggle:hover .docs-toggle-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    @media (max-width: 1200px) {
+      .docs-panel {
+        width: 400px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .docs-panel {
+        width: 100%;
+        max-width: 420px;
+      }
+    }
+
+    @media (max-width: 500px) {
+      .docs-panel {
+        width: 100%;
+        max-width: none;
+      }
     }
 
     /* Cell styles */
@@ -429,12 +650,6 @@
             <path d="M167 0c61 8 78 116-14 126l64 75h-53L70 90l89 0c29 0 28-52 0-52L20 37-12 0h179z"/>
           </svg>
         </a>
-        <!-- rayforce-py Docs -->
-        <a href="https://rayforcedb.github.io/rayforce-py/" class="social-link" target="_blank" title="Documentation">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-          </svg>
-        </a>
         <!-- PyPI -->
         <a href="https://pypi.org/project/rayforce/" class="social-link" target="_blank" title="PyPI">
           <svg viewBox="0 0 24 24" fill="currentColor">
@@ -451,15 +666,47 @@
     </div>
   </header>
 
-  <div class="notebook" id="notebook">
-    <div class="notebook-inner" id="notebookInner">
-      <!-- Cells will be added here -->
+  <!-- Floating docs toggle button -->
+  <button id="docsToggle" class="docs-toggle" title="Open Documentation (Ctrl+D)">
+    <span class="docs-toggle-label">Docs</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+  </button>
+
+  <div class="main-content">
+    <div class="notebook" id="notebook">
+      <div class="notebook-inner" id="notebookInner">
+        <!-- Cells will be added here -->
+      </div>
+    </div>
+
+    <div class="docs-panel" id="docsPanel">
+      <div class="docs-resize-handle" id="docsResizeHandle"></div>
+      <div class="docs-panel-header">
+        <div class="docs-panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          rayforce-py Documentation
+        </div>
+        <button class="docs-panel-close" id="docsPanelClose" title="Close (Ctrl+D)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Close
+        </button>
+      </div>
+      <div class="docs-iframe-container">
+        <iframe id="docsIframe" class="docs-iframe" src="about:blank"></iframe>
+      </div>
     </div>
   </div>
 
   <div class="keyboard-hint">
     <span><kbd>Shift</kbd> + <kbd>Enter</kbd> Run cell & advance</span>
     <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> Run cell</span>
+    <span><kbd>Ctrl</kbd> + <kbd>D</kbd> Toggle docs</span>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
@@ -858,6 +1105,105 @@ rayforce.version
         console.error(error);
       }
     }
+
+    // Docs panel functionality
+    const docsPanel = document.getElementById('docsPanel');
+    const docsToggle = document.getElementById('docsToggle');
+    const docsPanelClose = document.getElementById('docsPanelClose');
+    const docsIframe = document.getElementById('docsIframe');
+    const DOCS_URL = 'https://py.rayforcedb.com';
+
+    function toggleDocsPanel() {
+      const isOpen = docsPanel.classList.toggle('open');
+      docsToggle.classList.toggle('active', isOpen);
+
+      // Apply saved width when opening
+      if (isOpen) {
+        const savedWidth = localStorage.getItem('docsPanelWidth');
+        if (savedWidth) {
+          docsPanel.style.width = savedWidth;
+        }
+      }
+
+      // Lazy load iframe on first open
+      if (isOpen && docsIframe.src === 'about:blank') {
+        docsIframe.src = DOCS_URL;
+      }
+
+      // Save preference
+      localStorage.setItem('docsPanelOpen', isOpen);
+    }
+
+    docsToggle.addEventListener('click', toggleDocsPanel);
+    docsPanelClose.addEventListener('click', toggleDocsPanel);
+
+    // Keyboard shortcut: Ctrl+D to toggle docs
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        toggleDocsPanel();
+      }
+    });
+
+    // Restore docs panel state from localStorage
+    if (localStorage.getItem('docsPanelOpen') === 'true') {
+      toggleDocsPanel();
+    }
+
+    // Restore saved width if exists
+    const savedWidth = localStorage.getItem('docsPanelWidth');
+    if (savedWidth) {
+      docsPanel.style.width = savedWidth;
+    }
+
+    // Resize functionality
+    const docsResizeHandle = document.getElementById('docsResizeHandle');
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    docsResizeHandle.addEventListener('mousedown', (e) => {
+      if (!docsPanel.classList.contains('open')) return;
+
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = docsPanel.offsetWidth;
+
+      docsPanel.classList.add('resizing');
+      docsResizeHandle.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      // Prevent iframe from capturing mouse events during resize
+      docsIframe.style.pointerEvents = 'none';
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+
+      // Calculate new width (resizing from left edge, so subtract movement)
+      const deltaX = startX - e.clientX;
+      const maxWidth = Math.min(900, window.innerWidth * 0.7);
+      const newWidth = Math.max(320, Math.min(maxWidth, startWidth + deltaX));
+
+      docsPanel.style.width = `${newWidth}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isResizing) return;
+
+      isResizing = false;
+      docsPanel.classList.remove('resizing');
+      docsResizeHandle.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      docsIframe.style.pointerEvents = '';
+
+      // Save width to localStorage
+      localStorage.setItem('docsPanelWidth', docsPanel.style.width);
+    });
 
     init();
   </script>

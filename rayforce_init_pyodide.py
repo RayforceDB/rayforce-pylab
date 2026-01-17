@@ -8,7 +8,7 @@ from rayforce.ffi import FFI
 
 FFI.init_runtime()
 
-version = "0.5.2"
+version = "0.5.4"
 
 # On emscripten (Pyodide), the C extension is already loaded by the Python runtime
 # No need to use ctypes.CDLL - the _rayforce_c module is imported directly
